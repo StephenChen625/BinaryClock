@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二进制时钟</title>
+    <style>
+        /* 全局样式 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-top: 20px;
+            color: #e74c3c;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+        }
+
+        .time-display {
+            font-size: 28px;
+            margin: 20px 0;
+            padding: 10px;
+            background: #34495e;
+            border-radius: 8px;
+            display: inline-block;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 容器样式 */
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px; /* 画布之间的间距 */
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        canvas {
+            border: 2px solid #16a085;
+            border-radius: 10px;
+            background-color: #1abc9c; /* 非透明画布背景色 */
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        #values-canvas {
+            background-color: transparent; /* 权值画布保持透明 */
+        }
+
+        /* 提示样式 */
+        footer {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #bdc3c7;
+        }
+
+        footer a {
+            color: #1abc9c;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>二进制时钟</h1>
+    <div class="time-display" id="time-display">
+        当前时间：<span id="decimal-time"></span>
+    </div>
+    <div class="canvas-container">
+        <canvas id="values-canvas" width="40" height="200"></canvas>
+        <canvas id="hours-canvas" width="140" height="200"></canvas>
+        <canvas id="minutes-canvas" width="140" height="200"></canvas>
+        <canvas id="seconds-canvas" width="140" height="200"></canvas>
+    </div>
+    <footer>
+        © 2024 孙维刚教育研究院
+       <!--  <p>孙维刚教育研究院
+        <p>由 <a href="https://www.example.com" target="_blank">孙维刚教育研究院</a> 提供支持</p> -->
+    </footer>
+
+    <script>
+        // 获取二进制表示（固定长度）
+        function toBinary(num, bits) {
+            let binary = num.toString(2);
+            while (binary.length < bits) {
+                binary = "0" + binary;
+            }
+            return binary;
+        }
+
+        // 在画布上绘制二进制圆圈
+        function drawBinary(context, binaryValue, bits, offsetX) {
+            const radius = 15; // 圆圈半径
+            const spacing = 40; // 圆圈之间的垂直间距
+            const offsetY = 20; // 圆圈顶部与画布顶部的间距
+
+            // 将坐标原点移动到左下角
+            context.translate(0, context.canvas.height);
+            context.scale(1, -1);
+
+            // 绘制圆圈（从最低位开始）
+            for (let i = 0; i < bits; i++) {
+                const isActive = binaryValue[bits - 1 - i] === "1"; // 从最低位开始（倒序索引）
+                const x = offsetX; // 固定X位置
+                const y = i * spacing + offsetY; // Y位置按位数排列
+
+                // 绘制圆圈
+                context.beginPath();
+                context.arc(x, y, radius, 0, 2 * Math.PI);
+                context.fillStyle = isActive ? "#e74c3c" : "#bdc3c7"; // 1是红色，0是灰色
+                context.fill();
+                context.strokeStyle = "#2c3e50";
+                context.lineWidth = 2;
+                context.stroke();
+            }
+
+            // 重置坐标系（防止后续绘制错乱）
+            context.setTransform(1, 0, 0, 1, 0, 0);
+        }
+
+        // 绘制权值画布
+        function drawValuesCanvas() {
+            const canvas = document.getElementById("values-canvas");
+            const context = canvas.getContext("2d");
+
+            const values = [1, 2, 4, 8]; // 权值，从最低行开始
+            const spacing = 40; // 圆圈之间的垂直间距
+            const offsetY = 20; // 初始偏移量
+
+            // 移动坐标原点到左下角
+            context.translate(0, canvas.height);
+            context.scale(1, -1);
+
+            context.font = "16px Arial";
+            context.fillStyle = "#ecf0f1"; // 权值文字颜色
+            context.textAlign = "center"; // 文字居中对齐
+            context.textBaseline = "middle"; // 垂直居中对齐
+
+            for (let i = 0; i < values.length; i++) {
+                const y = i * spacing + offsetY; // 计算文字的Y坐标
+
+                // 临时恢复正常坐标系，用于文字绘制
+                context.save(); // 保存当前翻转的状态
+                context.scale(1, -1); // 翻转Y轴方向
+                context.fillText(values[i], canvas.width / 2, -y); // 在画布中心绘制权值，注意负号用于修正Y坐标
+                context.restore(); // 恢复翻转状态
+            }
+
+            // 重置坐标系（防止其他操作受影响）
+            context.setTransform(1, 0, 0, 1, 0, 0);
+        }
+
+        // 更新时钟
+        function updateClock() {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const seconds = now.getSeconds();
+
+            // 分解十位和个位
+            const hourTens = Math.floor(hours / 10); // 小时十位
+            const hourOnes = hours % 10;            // 小时个位
+            const minuteTens = Math.floor(minutes / 10); // 分钟十位
+            const minuteOnes = minutes % 10;            // 分钟个位
+            const secondTens = Math.floor(seconds / 10); // 秒钟十位
+            const secondOnes = seconds % 10;            // 秒钟个位
+
+            // 更新十进制时间显示
+            document.getElementById("decimal-time").innerText = `${hours.toString().padStart(2, "0")}:${minutes
+                .toString()
+                .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+
+            // 获取画布和上下文
+            const hoursCanvas = document.getElementById("hours-canvas").getContext("2d");
+            const minutesCanvas = document.getElementById("minutes-canvas").getContext("2d");
+            const secondsCanvas = document.getElementById("seconds-canvas").getContext("2d");
+
+            // 清除画布
+            hoursCanvas.clearRect(0, 0, 140, 200);
+            minutesCanvas.clearRect(0, 0, 140, 200);
+            secondsCanvas.clearRect(0, 0, 140, 200);
+
+            // 绘制小时
+            drawBinary(hoursCanvas, toBinary(hourTens, 2), 2, 40); // 小时十位（2位）
+            drawBinary(hoursCanvas, toBinary(hourOnes, 4), 4, 100); // 小时个位（4位）
+
+            // 绘制分钟
+            drawBinary(minutesCanvas, toBinary(minuteTens, 3), 3, 40); // 分钟十位（3位）
+            drawBinary(minutesCanvas, toBinary(minuteOnes, 4), 4, 100); // 分钟个位（4位）
+
+            // 绘制秒钟
+            drawBinary(secondsCanvas, toBinary(secondTens, 3), 3, 40); // 秒钟十位（3位）
+            drawBinary(secondsCanvas, toBinary(secondOnes, 4), 4, 100); // 秒钟个位（4位）
+        }
+
+        // 初始化权值画布
+        drawValuesCanvas();
+
+        // 实时更新时钟
+        setInterval(updateClock, 1000);
+
+        // 初始化时钟
+        updateClock();
+    </script>
+</body>
+</html>
